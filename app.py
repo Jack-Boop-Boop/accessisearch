@@ -1,11 +1,13 @@
 import os
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
-from flask import Flask, render_template, request, jsonify
+from flask import Flask, render_template, request, jsonify, send_from_directory
 
 from analyzers import analyze_page
 from utils.fetcher import fetch_page_html
 from utils.scoring import compute_overall_score, sort_results_by_score, CATEGORY_IDS
+
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
 app = Flask(__name__, static_folder="public", static_url_path="/static")
 
@@ -15,6 +17,11 @@ app = Flask(__name__, static_folder="public", static_url_path="/static")
 @app.route("/")
 def index():
     return render_template("index.html")
+
+
+@app.route("/static/<path:filename>")
+def serve_static(filename):
+    return send_from_directory(os.path.join(BASE_DIR, "public"), filename)
 
 
 # --- API Routes ---
