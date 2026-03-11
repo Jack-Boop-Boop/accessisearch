@@ -1,0 +1,8 @@
+.env
+CLOUDAPI.txt
+__pycache__/
+*.pyc
+.venv/
+venv/
+.vercel/
+node_modules/

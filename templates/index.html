@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AccessiSearch - Accessibility-Focused Web Search</title>
+  <meta name="description" content="Search the web and evaluate results by accessibility for different disability categories.">
+  <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+  <!-- Skip Links -->
+  <a href="#main-search" class="skip-link">Skip to search</a>
+  <a href="#results-section" class="skip-link">Skip to results</a>
+  <a href="#filter-panel" class="skip-link">Skip to filters</a>
+
+  <!-- Header -->
+  <header role="banner" id="app-header">
+    <h1 id="app-title">AccessiSearch</h1>
+    <p id="app-subtitle">Accessibility-Focused Web Search</p>
+    <div id="user-controls" role="toolbar" aria-label="Accessibility controls">
+      <button id="btn-font-decrease" aria-label="Decrease font size" type="button">A&minus;</button>
+      <button id="btn-font-increase" aria-label="Increase font size" type="button">A+</button>
+      <button id="btn-contrast" aria-label="Toggle high contrast mode" aria-pressed="false" type="button">High Contrast</button>
+      <button id="btn-spacing" aria-label="Toggle increased spacing" aria-pressed="false" type="button">Spacing</button>
+    </div>
+  </header>
+
+  <!-- Main Content -->
+  <main id="main-content">
+    <!-- Search Section -->
+    <section id="search-section" aria-labelledby="search-heading">
+      <h2 id="search-heading" class="visually-hidden">Search</h2>
+      <form id="search-form" role="search" aria-label="Web search">
+        <label for="main-search" class="visually-hidden">Search the web</label>
+        <input type="search" id="main-search" name="q" placeholder="Search the web..." autocomplete="off" aria-describedby="search-instructions">
+        <button type="submit" id="btn-search">Search</button>
+      </form>
+      <p id="search-instructions" class="visually-hidden">Enter your search terms. Results will be scored by accessibility for your selected filters.</p>
+    </section>
+
+    <!-- Layout: Sidebar + Results -->
+    <div id="content-layout">
+      <!-- Filter Sidebar -->
+      <aside id="filter-panel" role="complementary" aria-labelledby="filter-heading">
+        <h2 id="filter-heading">Accessibility Filters</h2>
+        <p id="filter-description">Select categories to prioritize in scoring.</p>
+        <fieldset id="filter-fieldset" aria-describedby="filter-description">
+          <legend class="visually-hidden">Accessibility filter categories</legend>
+
+          <div class="filter-item">
+            <input type="checkbox" id="filter-all" name="filter" value="all" checked>
+            <label for="filter-all">All Categories</label>
+          </div>
+          <hr class="filter-divider">
+
+          <div class="filter-item">
+            <input type="checkbox" id="filter-simplified_language" name="filter" value="simplified_language">
+            <label for="filter-simplified_language">Simplified Language</label>
+            <button class="info-btn" type="button" aria-label="Info about Simplified Language" aria-expanded="false" data-category="simplified_language">i</button>
+          </div>
+          <div class="filter-item">
+            <input type="checkbox" id="filter-dyslexia_friendly" name="filter" value="dyslexia_friendly">
+            <label for="filter-dyslexia_friendly">Dyslexia-Friendly</label>
+            <button class="info-btn" type="button" aria-label="Info about Dyslexia-Friendly" aria-expanded="false" data-category="dyslexia_friendly">i</button>
+          </div>
+          <div class="filter-item">
+            <input type="checkbox" id="filter-low_vision" name="filter" value="low_vision">
+            <label for="filter-low_vision">Low Vision</label>
+            <button class="info-btn" type="button" aria-label="Info about Low Vision" aria-expanded="false" data-category="low_vision">i</button>
+          </div>
+          <div class="filter-item">
+            <input type="checkbox" id="filter-screen_reader" name="filter" value="screen_reader">
+            <label for="filter-screen_reader">Screen Reader</label>
+            <button class="info-btn" type="button" aria-label="Info about Screen Reader" aria-expanded="false" data-category="screen_reader">i</button>
+          </div>
+          <div class="filter-item">
+            <input type="checkbox" id="filter-motor_keyboard" name="filter" value="motor_keyboard">
+            <label for="filter-motor_keyboard">Motor / Keyboard</label>
+            <button class="info-btn" type="button" aria-label="Info about Motor / Keyboard" aria-expanded="false" data-category="motor_keyboard">i</button>
+          </div>
+          <div class="filter-item">
+            <input type="checkbox" id="filter-deaf_hoh" name="filter" value="deaf_hoh">
+            <label for="filter-deaf_hoh">Deaf / Hard of Hearing</label>
+            <button class="info-btn" type="button" aria-label="Info about Deaf / Hard of Hearing" aria-expanded="false" data-category="deaf_hoh">i</button>
+          </div>
+          <div class="filter-item">
+            <input type="checkbox" id="filter-color_blindness" name="filter" value="color_blindness">
+            <label for="filter-color_blindness">Color Blindness</label>
+            <button class="info-btn" type="button" aria-label="Info about Color Blindness" aria-expanded="false" data-category="color_blindness">i</button>
+          </div>
+          <div class="filter-item">
+            <input type="checkbox" id="filter-cognitive_load" name="filter" value="cognitive_load">
+            <label for="filter-cognitive_load">Cognitive Load</label>
+            <button class="info-btn" type="button" aria-label="Info about Cognitive Load" aria-expanded="false" data-category="cognitive_load">i</button>
+          </div>
+        </fieldset>
+      </aside>
+
+      <!-- Results Section -->
+      <section id="results-section" aria-labelledby="results-heading">
+        <h2 id="results-heading">Results</h2>
+        <div id="results-status" role="status" aria-live="polite" aria-atomic="true"></div>
+        <div id="loading-indicator" hidden>
+          <div class="spinner" role="img" aria-label="Loading results"></div>
+          <p>Searching and analyzing accessibility...</p>
+        </div>
+        <ol id="results-list" aria-label="Search results ranked by accessibility"></ol>
+        <div id="no-results" hidden><p>No results found. Try a different search term.</p></div>
+        <div id="welcome-message">
+          <p><strong>Welcome to AccessiSearch</strong></p>
+          <p>Enter a search query above to find web content scored by accessibility.</p>
+          <p>Use the filter checkboxes to prioritize specific accessibility categories.</p>
+        </div>
+      </section>
+    </div>
+  </main>
+
+  <!-- Footer -->
+  <footer role="contentinfo" id="app-footer">
+    <p>AccessiSearch &mdash; Ethics Class Final Project</p>
+  </footer>
+
+  <script src="/static/js/main.js"></script>
+</body>
+</html>
