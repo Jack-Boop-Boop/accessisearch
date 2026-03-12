@@ -1,15 +1,13 @@
 import os
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
-from flask import Flask, render_template, request, jsonify, send_from_directory
+from flask import Flask, render_template, request, jsonify
 
 from analyzers import analyze_page
 from utils.fetcher import fetch_page_html
 from utils.scoring import compute_overall_score, sort_results_by_score, CATEGORY_IDS
 
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-
-app = Flask(__name__, static_folder="public", static_url_path="/static")
+app = Flask(__name__)
 
 
 # --- Page Routes ---
@@ -17,25 +15,6 @@ app = Flask(__name__, static_folder="public", static_url_path="/static")
 @app.route("/")
 def index():
     return render_template("index.html")
-
-
-@app.route("/static/<path:filename>")
-def serve_static(filename):
-    static_dir = os.path.join(BASE_DIR, "public")
-    return send_from_directory(static_dir, filename)
-
-
-@app.route("/debug/paths")
-def debug_paths():
-    base_public = os.path.join(BASE_DIR, "public")
-    return jsonify({
-        "BASE_DIR": BASE_DIR,
-        "cwd": os.getcwd(),
-        "__file__": __file__,
-        "public_exists": os.path.isdir(base_public),
-        "public_contents": os.listdir(base_public) if os.path.isdir(base_public) else "NOT FOUND",
-        "base_contents": os.listdir(BASE_DIR),
-    })
 
 
 # --- API Routes ---
