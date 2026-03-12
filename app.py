@@ -21,7 +21,21 @@ def index():
 
 @app.route("/static/<path:filename>")
 def serve_static(filename):
-    return send_from_directory(os.path.join(BASE_DIR, "public"), filename)
+    static_dir = os.path.join(BASE_DIR, "public")
+    return send_from_directory(static_dir, filename)
+
+
+@app.route("/debug/paths")
+def debug_paths():
+    base_public = os.path.join(BASE_DIR, "public")
+    return jsonify({
+        "BASE_DIR": BASE_DIR,
+        "cwd": os.getcwd(),
+        "__file__": __file__,
+        "public_exists": os.path.isdir(base_public),
+        "public_contents": os.listdir(base_public) if os.path.isdir(base_public) else "NOT FOUND",
+        "base_contents": os.listdir(BASE_DIR),
+    })
 
 
 # --- API Routes ---
