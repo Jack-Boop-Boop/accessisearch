@@ -11,17 +11,21 @@ class LowVisionAnalyzer(BaseAnalyzer):
         styles_text = self.get_all_styles_text()
 
         # Color contrast indicators (up to 2.5)
-        has_contrast_vars = any(
+        has_contrast_mq = any(
             kw in styles_text
-            for kw in ("--color-", "contrast", "prefers-contrast")
+            for kw in ("prefers-contrast", "forced-colors")
         )
+        has_dark_mode = "prefers-color-scheme" in styles_text
         inline_colors = self.soup.select("[style*='color']")
-        if has_contrast_vars:
+        if has_contrast_mq:
             score += 2.5
-            details.append("CSS variables or contrast-aware styles detected")
-        elif len(inline_colors) < 5:
+            details.append("Contrast media queries (prefers-contrast / forced-colors) detected")
+        elif has_dark_mode:
             score += 1.5
-            details.append("Minimal inline color styling (likely uses stylesheet)")
+            details.append("Dark mode media query detected (partial contrast support)")
+        elif len(inline_colors) < 5:
+            score += 1.0
+            details.append("Minimal inline color styling (relies on stylesheet)")
         else:
             score += 0.5
             details.append(

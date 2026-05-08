@@ -54,8 +54,8 @@ class DyslexiaFriendlyAnalyzer(BaseAnalyzer):
                 score += 0.5
                 details.append(f"Tight line spacing (line-height: {max_lh})")
         else:
-            score += 1.5
-            details.append("No line-height declared (browser default ~1.2)")
+            score += 0.5
+            details.append("No line-height declared (browser default ~1.2, below recommended 1.5)")
 
         # Paragraph length (up to 2.0)
         paragraphs = self.soup.find_all("p")

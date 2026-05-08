@@ -31,14 +31,15 @@ class ColorBlindnessAnalyzer(BaseAnalyzer):
             )
 
         # Color contrast CSS patterns (up to 2.5)
-        has_high_contrast_vars = any(
+        has_contrast_mq = any(
             kw in styles_text.lower()
-            for kw in ("--color-", "prefers-contrast", "forced-colors")
+            for kw in ("prefers-contrast", "forced-colors")
         )
-        if has_high_contrast_vars:
+        has_explicit_colors = "color:" in styles_text and "background" in styles_text
+        if has_contrast_mq:
             score += 2.5
-            details.append("CSS custom properties or contrast media queries found")
-        elif "color:" in styles_text and "background" in styles_text:
+            details.append("Contrast media queries (prefers-contrast / forced-colors) found")
+        elif has_explicit_colors:
             score += 1.5
             details.append("Explicit color and background declarations present")
         else:

@@ -1,6 +1,6 @@
 import requests
 
-FETCH_TIMEOUT = 8
+FETCH_TIMEOUT = 4
 MAX_CONTENT_LENGTH = 2_000_000
 
 

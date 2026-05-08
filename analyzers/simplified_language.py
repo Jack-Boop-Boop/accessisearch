@@ -43,7 +43,7 @@ class SimplifiedLanguageAnalyzer(BaseAnalyzer):
             )
 
         # Complex word ratio (up to 3.0)
-        complex_words = [w for w in words if len(w) > 6]
+        complex_words = [w for w in words if len(w) > 8]
         complex_ratio = len(complex_words) / len(words)
         if complex_ratio < 0.15:
             score += 3.0

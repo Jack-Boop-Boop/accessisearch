@@ -1,13 +1,14 @@
+import json as json_mod
 import os
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
-from flask import Flask, render_template, request, jsonify
+from flask import Flask, Response, jsonify, render_template, request, stream_with_context
 
 from analyzers import analyze_page
 from utils.fetcher import fetch_page_html
-from utils.scoring import compute_overall_score, sort_results_by_score, CATEGORY_IDS
+from utils.scoring import CATEGORY_IDS, compute_overall_score, sort_results_by_score
 
-app = Flask(__name__)
+app = Flask(__name__, static_folder="public", static_url_path="/public")
 
 
 # --- Page Routes ---
@@ -30,15 +31,15 @@ def api_search():
         set(filters_param.split(",")) if filters_param != "all" else {"all"}
     )
 
-    # Step 1: Google Custom Search
-    search_results = google_custom_search(query)
+    try:
+        search_results = google_custom_search(query)
+    except ValueError as e:
+        return jsonify({"error": str(e)}), 503
+
     if not search_results:
         return jsonify({"results": [], "query": query, "total": 0})
 
-    # Step 2: Fetch and analyze pages in parallel
     analyzed = analyze_results_parallel(search_results)
-
-    # Step 3: Sort by score
     sorted_results = sort_results_by_score(analyzed, active_filters)
 
     return jsonify({
@@ -48,22 +49,87 @@ def api_search():
     })
 
 
-def google_custom_search(query, num=10):
+@app.route("/api/search/stream")
+def api_search_stream():
+    query = request.args.get("q", "").strip()
+    if not query:
+        return jsonify({"error": "Missing query parameter 'q'"}), 400
+
+    filters_param = request.args.get("filters", "all")
+    active_filters = (
+        set(filters_param.split(",")) if filters_param != "all" else {"all"}
+    )
+
+    def generate():
+        try:
+            search_results = google_custom_search(query)
+        except ValueError as e:
+            yield f"data: {json_mod.dumps({'type': 'error', 'message': str(e)})}\n\n"
+            return
+
+        if not search_results:
+            yield f"data: {json_mod.dumps({'type': 'done', 'total': 0, 'query': query})}\n\n"
+            return
+
+        completed = []
+
+        def process_one(item):
+            html = fetch_page_html(item["link"])
+            if html:
+                item["scores"] = analyze_page(html, item["link"])
+                item["analysis_status"] = "complete"
+            else:
+                item["scores"] = get_neutral_scores()
+                item["analysis_status"] = "failed"
+            item["overall_score"] = compute_overall_score(item["scores"], active_filters)
+            return item
+
+        with ThreadPoolExecutor(max_workers=5) as executor:
+            futures = {executor.submit(process_one, item): item for item in search_results}
+            for future in as_completed(futures):
+                try:
+                    result = future.result()
+                except Exception:
+                    original = futures[future]
+                    original["scores"] = get_neutral_scores()
+                    original["analysis_status"] = "error"
+                    original["overall_score"] = 0.0
+                    result = original
+                completed.append(result)
+                yield f"data: {json_mod.dumps({'type': 'result', 'result': result})}\n\n"
+
+        yield f"data: {json_mod.dumps({'type': 'done', 'total': len(completed), 'query': query})}\n\n"
+
+    return Response(
+        stream_with_context(generate()),
+        mimetype="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "X-Accel-Buffering": "no",
+        },
+    )
+
+
+def google_custom_search(query, num=5):
     """Call Google Custom Search JSON API."""
     import requests as req
 
     api_key = os.environ.get("GOOGLE_API_KEY", "")
     cx = os.environ.get("GOOGLE_CX", "")
     if not api_key or not cx:
-        return []
+        raise ValueError(
+            "Google API keys not configured. Set GOOGLE_API_KEY and GOOGLE_CX environment variables."
+        )
 
     url = "https://www.googleapis.com/customsearch/v1"
     params = {"key": api_key, "cx": cx, "q": query, "num": num}
 
     try:
         resp = req.get(url, params=params, timeout=10)
-        if resp.status_code in (403, 429):
-            return []
+        if resp.status_code == 403:
+            raise ValueError("Google API key rejected (403). Check GOOGLE_API_KEY and GOOGLE_CX are valid.")
+        if resp.status_code == 429:
+            raise ValueError("Google API quota exceeded (429). Try again later.")
         resp.raise_for_status()
         data = resp.json()
         items = data.get("items", [])
@@ -80,7 +146,7 @@ def google_custom_search(query, num=10):
         return []
 
 
-def analyze_results_parallel(search_results, max_workers=3):
+def analyze_results_parallel(search_results):
     """Fetch and analyze pages concurrently."""
 
     def process_one(item):
@@ -94,7 +160,7 @@ def analyze_results_parallel(search_results, max_workers=3):
         return item
 
     analyzed = []
-    with ThreadPoolExecutor(max_workers=max_workers) as executor:
+    with ThreadPoolExecutor(max_workers=5) as executor:
         futures = {
             executor.submit(process_one, item): item
             for item in search_results

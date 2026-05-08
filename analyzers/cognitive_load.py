@@ -1,43 +1,12 @@
-import re
 from .base import BaseAnalyzer
 
 
 class CognitiveLoadAnalyzer(BaseAnalyzer):
-    """Cognitive Load: readability, navigation, headings, semantic layout, auto-refresh."""
+    """Cognitive Load: navigation, headings, semantic layout, auto-refresh, modals, carousels."""
 
     def analyze(self):
         score = 0.0
         details = []
-
-        # Readability (up to 3.0)
-        text = self.get_all_text()
-        sentences = [s.strip() for s in re.split(r"[.!?]+", text) if s.strip()]
-
-        if len(sentences) > 3:
-            total_words = sum(len(s.split()) for s in sentences)
-            avg_words = total_words / len(sentences)
-            if avg_words < 15:
-                score += 3.0
-                details.append(
-                    f"Good readability (avg {avg_words:.0f} words/sentence)"
-                )
-            elif avg_words < 20:
-                score += 2.0
-                details.append(
-                    f"Moderate readability (avg {avg_words:.0f} words/sentence)"
-                )
-            elif avg_words < 25:
-                score += 1.0
-                details.append(
-                    f"Complex language (avg {avg_words:.0f} words/sentence)"
-                )
-            else:
-                details.append(
-                    f"Very complex language (avg {avg_words:.0f} words/sentence)"
-                )
-        else:
-            score += 2.0
-            details.append("Limited text content to analyze")
 
         # Clear navigation (up to 2.5)
         nav = self.soup.find("nav")
@@ -50,7 +19,6 @@ class CognitiveLoadAnalyzer(BaseAnalyzer):
                 score += 1.5
                 details.append("Navigation element present")
         else:
-            score += 0.5
             details.append("No nav element found")
 
         # Heading structure (up to 2.0)
@@ -64,16 +32,16 @@ class CognitiveLoadAnalyzer(BaseAnalyzer):
         else:
             details.append("No headings found")
 
-        # Semantic layout (up to 1.5)
+        # Semantic layout (up to 2.0)
         has_header = self.soup.find("header") is not None
         has_main = self.soup.find("main") is not None
         has_footer = self.soup.find("footer") is not None
         layout_count = sum([has_header, has_main, has_footer])
         if layout_count == 3:
-            score += 1.5
+            score += 2.0
             details.append("Full semantic layout (header, main, footer)")
         elif layout_count == 2:
-            score += 1.0
+            score += 1.2
             details.append(f"{layout_count}/3 semantic layout elements")
         elif layout_count == 1:
             score += 0.5
@@ -81,12 +49,45 @@ class CognitiveLoadAnalyzer(BaseAnalyzer):
         else:
             details.append("No semantic layout elements")
 
-        # Auto-refresh (up to 1.0)
+        # No auto-refresh (up to 1.0)
         refresh = self.soup.find("meta", attrs={"http-equiv": "refresh"})
         if not refresh:
             score += 1.0
             details.append("No auto-refresh detected")
         else:
-            details.append("Auto-refresh meta tag found")
+            details.append("Auto-refresh meta tag found (disorienting)")
+
+        # No modal/popup overlays (up to 1.5)
+        modal_roles = self.soup.find_all(attrs={"role": "dialog"})
+        modal_classes = [
+            el for el in self.soup.find_all(["div", "section", "aside"])
+            if any(
+                k in " ".join(el.get("class") or []).lower()
+                for k in ["modal", "popup", "overlay", "lightbox", "cookie-banner"]
+            )
+        ]
+        popup_count = len(modal_roles) + len(modal_classes)
+        if popup_count == 0:
+            score += 1.5
+            details.append("No modal overlays or popups detected")
+        elif popup_count <= 1:
+            score += 0.75
+            details.append(f"{popup_count} modal/popup element detected")
+        else:
+            details.append(f"{popup_count} modal/popup elements detected (high cognitive load)")
+
+        # No carousels or auto-playing sliders (up to 1.0)
+        carousel_els = [
+            el for el in self.soup.find_all(True)
+            if any(
+                k in " ".join(el.get("class") or []).lower()
+                for k in ["carousel", "slider", "slideshow", "swiper", "slick"]
+            )
+        ]
+        if not carousel_els:
+            score += 1.0
+            details.append("No carousels or sliders detected")
+        else:
+            details.append(f"{len(carousel_els)} carousel/slider element(s) found")
 
         return {"score": self.clamp_score(score), "details": details}

@@ -23,29 +23,27 @@ class ScreenReaderAnalyzer(BaseAnalyzer):
             score += pts
             details.append(f"Alt text: {with_alt}/{len(imgs)} images ({pts}/2.5)")
 
-        # ARIA landmarks and labels (up to 2.0)
-        aria_count = len(self.soup.select(
-            "[role], [aria-label], [aria-labelledby], [aria-describedby]"
-        ))
-        landmarks = len(self.soup.select(
-            "nav, main, header, footer, aside, "
-            "section[aria-label], section[aria-labelledby]"
-        ))
-        total_aria = aria_count + landmarks
-        if total_aria >= 11:
+        # Semantic landmarks (up to 2.0) — count meaningful regions, not raw ARIA element count
+        has_main = bool(self.soup.find("main") or self.soup.find(attrs={"role": "main"}))
+        has_nav = bool(self.soup.find("nav") or self.soup.find(attrs={"role": "navigation"}))
+        has_banner = bool(self.soup.find("header") or self.soup.find(attrs={"role": "banner"}))
+        has_contentinfo = bool(self.soup.find("footer") or self.soup.find(attrs={"role": "contentinfo"}))
+        has_search = bool(self.soup.find(attrs={"role": "search"}))
+        landmark_count = sum([has_main, has_nav, has_banner, has_contentinfo, has_search])
+        if landmark_count >= 4:
             score += 2.0
-            details.append(f"Strong ARIA usage ({total_aria} elements)")
-        elif total_aria >= 6:
+            details.append(f"Strong landmark structure ({landmark_count}/5 regions)")
+        elif landmark_count >= 3:
             score += 1.5
-            details.append(f"Good ARIA usage ({total_aria} elements)")
-        elif total_aria >= 3:
+            details.append(f"Good landmark structure ({landmark_count}/5 regions)")
+        elif landmark_count >= 2:
             score += 1.0
-            details.append(f"Basic ARIA usage ({total_aria} elements)")
-        elif total_aria >= 1:
+            details.append(f"Basic landmark structure ({landmark_count}/5 regions)")
+        elif landmark_count >= 1:
             score += 0.5
-            details.append(f"Minimal ARIA usage ({total_aria} elements)")
+            details.append(f"Minimal landmark structure ({landmark_count}/5 regions)")
         else:
-            details.append("No ARIA landmarks or labels found")
+            details.append("No semantic landmark regions found")
 
         # Heading hierarchy (up to 2.0)
         headings = self.soup.find_all(["h1", "h2", "h3", "h4", "h5", "h6"])
