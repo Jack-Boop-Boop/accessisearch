@@ -235,7 +235,7 @@ body {
 .overall-score { display: flex; align-items: center; gap: var(--spacing-sm); margin-bottom: var(--spacing-xs); }
 .score-label { font-size: calc(0.85rem * var(--font-scale)); font-weight: 600; }
 .score-bar-container { flex: 1; max-width: 200px; height: 8px; background: var(--color-border); border-radius: 4px; overflow: hidden; }
-.score-bar-fill { height: 100%; border-radius: 4px; transition: width 0.3s ease; }
+.score-bar-fill { display: block; height: 100%; border-radius: 4px; transition: width 0.3s ease; }
 .score-value { font-size: calc(0.85rem * var(--font-scale)); font-weight: 700; min-width: 40px; }
 .score-value[data-level="high"] { color: var(--color-score-high); }
 .score-value[data-level="mid"] { color: var(--color-score-mid); }
