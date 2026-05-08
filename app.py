@@ -114,37 +114,44 @@ def api_search_stream():
 
 
 def google_custom_search(query, num=5):
-    """Call Google Custom Search JSON API."""
+    """Call Brave Search API."""
     import requests as req
+    from urllib.parse import urlparse
 
-    api_key = os.environ.get("GOOGLE_API_KEY", "")
-    cx = os.environ.get("GOOGLE_CX", "")
-    if not api_key or not cx:
+    api_key = os.environ.get("BRAVE_API_KEY", "")
+    if not api_key:
         raise ValueError(
-            "Google API keys not configured. Set GOOGLE_API_KEY and GOOGLE_CX environment variables."
+            "Brave API key not configured. Set BRAVE_API_KEY environment variable."
         )
 
-    url = "https://www.googleapis.com/customsearch/v1"
-    params = {"key": api_key, "cx": cx, "q": query, "num": num}
+    url = "https://api.search.brave.com/res/v1/web/search"
+    headers = {
+        "Accept": "application/json",
+        "Accept-Encoding": "gzip",
+        "X-Subscription-Token": api_key,
+    }
+    params = {"q": query, "count": num, "result_filter": "web"}
 
     try:
-        resp = req.get(url, params=params, timeout=10)
-        if resp.status_code == 403:
-            raise ValueError("Google API key rejected (403). Check GOOGLE_API_KEY and GOOGLE_CX are valid.")
+        resp = req.get(url, headers=headers, params=params, timeout=10)
+        if resp.status_code == 401:
+            raise ValueError("Brave API key rejected (401). Check BRAVE_API_KEY.")
         if resp.status_code == 429:
-            raise ValueError("Google API quota exceeded (429). Try again later.")
+            raise ValueError("Brave API quota exceeded (429). Try again later.")
         resp.raise_for_status()
         data = resp.json()
-        items = data.get("items", [])
+        results = data.get("web", {}).get("results", [])
         return [
             {
                 "title": it.get("title", "Untitled"),
-                "link": it.get("link", ""),
-                "display_link": it.get("displayLink", it.get("link", "")),
-                "snippet": it.get("snippet", ""),
+                "link": it.get("url", ""),
+                "display_link": urlparse(it.get("url", "")).netloc,
+                "snippet": it.get("description", ""),
             }
-            for it in items
+            for it in results
         ]
+    except ValueError:
+        raise
     except Exception:
         return []
 
