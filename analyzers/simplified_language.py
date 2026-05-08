@@ -3,7 +3,7 @@ from .base import BaseAnalyzer
 
 
 class SimplifiedLanguageAnalyzer(BaseAnalyzer):
-    """Simplified Language: readability, sentence length, word complexity, chunking."""
+    """Simplified Language: Flesch-Kincaid readability, paragraph chunking, lists."""
 
     def analyze(self):
         score = 0.0
@@ -18,87 +18,71 @@ class SimplifiedLanguageAnalyzer(BaseAnalyzer):
             }
 
         sentences = [s.strip() for s in re.split(r"[.!?]+", text) if s.strip()]
-        avg_sentence_len = len(words) / max(len(sentences), 1)
+        if not sentences:
+            return {"score": 5.0, "details": ["No complete sentences found"]}
 
-        # Sentence length (up to 2.5)
-        if avg_sentence_len < 15:
-            score += 2.5
-            details.append(
-                f"Short sentences (avg {avg_sentence_len:.0f} words) -- easy to read"
-            )
-        elif avg_sentence_len < 20:
-            score += 1.8
-            details.append(
-                f"Moderate sentence length (avg {avg_sentence_len:.0f} words)"
-            )
-        elif avg_sentence_len < 25:
-            score += 1.0
-            details.append(
-                f"Long sentences (avg {avg_sentence_len:.0f} words)"
-            )
-        else:
-            score += 0.3
-            details.append(
-                f"Very long sentences (avg {avg_sentence_len:.0f} words)"
-            )
+        syllables = sum(self._count_syllables(w) for w in words)
+        words_per_sentence = len(words) / len(sentences)
+        syllables_per_word = syllables / len(words)
 
-        # Complex word ratio (up to 3.0)
-        complex_words = [w for w in words if len(w) > 8]
-        complex_ratio = len(complex_words) / len(words)
-        if complex_ratio < 0.15:
+        # Flesch Reading Ease (up to 6.0)
+        fk = 206.835 - 1.015 * words_per_sentence - 84.6 * syllables_per_word
+        fk = max(0.0, min(100.0, fk))
+
+        if fk >= 80:
+            score += 6.0
+            details.append(f"Very easy reading level (Flesch {fk:.0f}/100 — plain language)")
+        elif fk >= 65:
+            score += 4.5
+            details.append(f"Standard reading level (Flesch {fk:.0f}/100)")
+        elif fk >= 50:
             score += 3.0
-            details.append(
-                f"Simple vocabulary ({complex_ratio:.0%} complex words)"
-            )
-        elif complex_ratio < 0.25:
-            score += 2.0
-            details.append(
-                f"Moderate vocabulary ({complex_ratio:.0%} complex words)"
-            )
-        elif complex_ratio < 0.35:
-            score += 1.0
-            details.append(
-                f"Complex vocabulary ({complex_ratio:.0%} complex words)"
-            )
-        else:
-            details.append(
-                f"Very complex vocabulary ({complex_ratio:.0%} complex words)"
-            )
-
-        # Average word length (up to 2.0)
-        avg_word_len = sum(len(w) for w in words) / len(words)
-        if avg_word_len < 5.0:
-            score += 2.0
-            details.append(f"Short average word length ({avg_word_len:.1f} chars)")
-        elif avg_word_len < 6.0:
-            score += 1.2
-            details.append(f"Moderate word length ({avg_word_len:.1f} chars)")
+            details.append(f"Moderately complex (Flesch {fk:.0f}/100)")
+        elif fk >= 30:
+            score += 1.5
+            details.append(f"Difficult reading level (Flesch {fk:.0f}/100)")
         else:
             score += 0.5
-            details.append(f"Long average word length ({avg_word_len:.1f} chars)")
+            details.append(f"Very difficult reading level (Flesch {fk:.0f}/100)")
 
-        # Paragraph chunking (up to 1.5)
+        # Paragraph chunking (up to 2.5)
         paragraphs = self.soup.find_all("p")
         if len(paragraphs) >= 5:
-            score += 1.5
-            details.append(
-                f"Well-chunked content ({len(paragraphs)} paragraphs)"
-            )
+            score += 2.5
+            details.append(f"Well-chunked content ({len(paragraphs)} paragraphs)")
         elif len(paragraphs) >= 2:
-            score += 0.8
-            details.append(
-                f"Some content chunking ({len(paragraphs)} paragraphs)"
-            )
-        else:
+            score += 1.5
+            details.append(f"Some content chunking ({len(paragraphs)} paragraphs)")
+        elif len(paragraphs) >= 1:
+            score += 0.5
             details.append("Minimal paragraph structure")
+        else:
+            details.append("No paragraph elements found")
 
-        # Lists for organization (up to 1.0)
+        # Lists for organization (up to 1.5)
         lists = self.soup.find_all(["ul", "ol"])
         if len(lists) >= 2:
-            score += 1.0
-            details.append(f"Lists used to organize information ({len(lists)} lists)")
-        elif len(lists) >= 1:
-            score += 0.5
+            score += 1.5
+            details.append(f"Lists used to organize content ({len(lists)} lists)")
+        elif len(lists) == 1:
+            score += 0.8
             details.append("Some list usage")
+        else:
+            details.append("No list elements found")
 
         return {"score": self.clamp_score(score), "details": details}
+
+    def _count_syllables(self, word):
+        word = word.lower().strip(".,!?;:\"'()[]{}")
+        if len(word) <= 3:
+            return 1
+        count = 0
+        prev_vowel = False
+        for ch in word:
+            is_v = ch in "aeiouy"
+            if is_v and not prev_vowel:
+                count += 1
+            prev_vowel = is_v
+        if word.endswith("e"):
+            count -= 1
+        return max(1, count)

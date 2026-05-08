@@ -5,7 +5,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from flask import Flask, Response, jsonify, render_template, request, stream_with_context
 
 from analyzers import analyze_page
-from utils.fetcher import fetch_page_html
+from utils.fetcher import extract_rich_snippet, fetch_page_html
 from utils.scoring import CATEGORY_IDS, compute_overall_score, sort_results_by_score
 
 app = Flask(__name__, static_folder="public", static_url_path="/public")
@@ -78,6 +78,9 @@ def api_search_stream():
             if html:
                 item["scores"] = analyze_page(html, item["link"])
                 item["analysis_status"] = "complete"
+                rich = extract_rich_snippet(html)
+                if rich:
+                    item["rich_snippet"] = rich
             else:
                 item["scores"] = get_neutral_scores()
                 item["analysis_status"] = "failed"
@@ -154,6 +157,9 @@ def analyze_results_parallel(search_results):
         if html:
             item["scores"] = analyze_page(html, item["link"])
             item["analysis_status"] = "complete"
+            rich = extract_rich_snippet(html)
+            if rich:
+                item["rich_snippet"] = rich
         else:
             item["scores"] = get_neutral_scores()
             item["analysis_status"] = "failed"

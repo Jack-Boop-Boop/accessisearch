@@ -257,6 +257,37 @@ body {
 .status-complete { background: var(--color-badge-analyzed); color: var(--color-badge-analyzed-text); }
 .status-failed, .status-error { background: var(--color-badge-failed); color: var(--color-badge-failed-text); }
 
+/* GRADE BADGE */
+.result-header { display: flex; align-items: flex-start; justify-content: space-between; gap: var(--spacing-sm); margin-bottom: var(--spacing-xs); }
+.result-header-main { flex: 1; min-width: 0; }
+.grade-badge {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 44px; height: 44px; border-radius: 50%; flex-shrink: 0;
+  font-size: calc(0.95rem * var(--font-scale)); font-weight: 800;
+  border: 2px solid currentColor;
+}
+.grade-a { color: var(--color-score-high); background: #dcfce7; }
+.grade-b { color: #16803c; background: #d1fae5; }
+.grade-c { color: var(--color-score-mid); background: #fef9c3; }
+.grade-d { color: #c2610c; background: #ffedd5; }
+.grade-f { color: var(--color-score-low); background: #fee2e2; }
+
+/* WEAKEST CALLOUT */
+.weakest-callout {
+  font-size: calc(0.8rem * var(--font-scale)); color: var(--color-score-low);
+  display: flex; align-items: center; gap: var(--spacing-xs); margin-top: var(--spacing-xs);
+}
+
+/* RESULTS META */
+#results-query { font-weight: 600; font-size: calc(0.95rem * var(--font-scale)); color: var(--color-text); margin-bottom: 2px; }
+#sort-indicator { font-size: calc(0.8rem * var(--font-scale)); color: var(--color-text-muted); margin-bottom: var(--spacing-md); }
+
+/* FILTER WARNING */
+#filter-warning {
+  font-size: calc(0.85rem * var(--font-scale)); padding: var(--spacing-xs) var(--spacing-sm);
+  background: #fef3c7; color: #92400e; border-radius: var(--border-radius); margin-top: var(--spacing-sm);
+}
+
 /* SKELETON CARDS */
 .result-card-skeleton {
   background: var(--color-bg-card); border: 1px solid var(--color-border);
@@ -373,11 +404,14 @@ body {
             <button class="info-btn" type="button" aria-label="Info about Cognitive Load" aria-expanded="false" data-category="cognitive_load">i</button>
           </div>
         </fieldset>
+        <p id="filter-warning" role="alert" hidden>Select at least one filter category, or use All Categories.</p>
       </aside>
 
       <!-- Results Section -->
       <section id="results-section" aria-labelledby="results-heading">
         <h2 id="results-heading">Results</h2>
+        <p id="results-query" hidden></p>
+        <p id="sort-indicator" hidden></p>
         <div id="results-status" role="status" aria-live="polite" aria-atomic="true"></div>
         <div id="loading-indicator" hidden>
           <div class="spinner" role="img" aria-label="Loading results"></div>
@@ -405,85 +439,89 @@ body {
    AccessiSearch — Frontend JavaScript
    ============================================================ */
 (function () {
-  "use strict";
+  “use strict”;
 
   /* ---- Constants ---- */
   var CATEGORY_IDS = [
-    "simplified_language", "dyslexia_friendly", "low_vision",
-    "screen_reader", "motor_keyboard", "deaf_hoh",
-    "color_blindness", "cognitive_load"
+    “simplified_language”, “dyslexia_friendly”, “low_vision”,
+    “screen_reader”, “motor_keyboard”, “deaf_hoh”,
+    “color_blindness”, “cognitive_load”
   ];
 
   var CATEGORY_NAMES = {
-    simplified_language: "Simplified Language",
-    dyslexia_friendly: "Dyslexia-Friendly",
-    low_vision: "Low Vision",
-    screen_reader: "Screen Reader Friendly",
-    motor_keyboard: "Motor / Keyboard-Only",
-    deaf_hoh: "Deaf / Hard of Hearing",
-    color_blindness: "Color Blindness",
-    cognitive_load: "Cognitive Load"
+    simplified_language: “Simplified Language”,
+    dyslexia_friendly: “Dyslexia-Friendly”,
+    low_vision: “Low Vision”,
+    screen_reader: “Screen Reader Friendly”,
+    motor_keyboard: “Motor / Keyboard-Only”,
+    deaf_hoh: “Deaf / Hard of Hearing”,
+    color_blindness: “Color Blindness”,
+    cognitive_load: “Cognitive Load”
   };
 
   var CATEGORY_INFO = {
     simplified_language: {
-      title: "Simplified Language",
-      text: "Evaluates whether pages use short sentences, common words, and well-structured paragraphs. Helpful for people with cognitive disabilities, non-native speakers, or anyone who benefits from plain language."
+      title: “Simplified Language”,
+      text: “Uses Flesch Reading Ease to evaluate whether pages use plain language, short sentences, and well-structured paragraphs. Helpful for people with cognitive disabilities and non-native speakers.”
     },
     dyslexia_friendly: {
-      title: "Dyslexia-Friendly",
-      text: "Checks for sans-serif fonts, adequate line spacing, shorter paragraphs, and avoidance of justified text. These features make text easier to track for people with dyslexia."
+      title: “Dyslexia-Friendly”,
+      text: “Checks for sans-serif fonts, adequate line spacing, shorter paragraphs, and avoidance of justified text. These features make text easier to track for people with dyslexia.”
     },
     low_vision: {
-      title: "Low Vision",
-      text: "Looks for relative font units (rem/em), zoom support, high-contrast CSS, and appropriately sized touch targets. Important for users who rely on magnification or large text."
+      title: “Low Vision”,
+      text: “Looks for relative font units (rem/em), zoom support, and contrast media queries. Important for users who rely on magnification or large text.”
     },
     screen_reader: {
-      title: "Screen Reader Friendly",
-      text: "Checks for image alt text, ARIA landmarks, heading hierarchy, skip links, form labels, and language attributes. Essential for blind or visually impaired users who navigate with screen readers."
+      title: “Screen Reader Friendly”,
+      text: “Checks for image alt text, semantic landmark regions, heading hierarchy, skip links, form labels, and language attributes. Essential for blind or visually impaired users.”
     },
     motor_keyboard: {
-      title: "Motor / Keyboard-Only",
-      text: "Evaluates keyboard navigability, skip navigation links, visible focus indicators, zoom support, and absence of drag-only interactions. Critical for users who cannot use a mouse."
+      title: “Motor / Keyboard-Only”,
+      text: “Evaluates keyboard navigability, skip navigation links, visible focus indicators, zoom support, and absence of drag-only interactions. Critical for users who cannot use a mouse.”
     },
     deaf_hoh: {
-      title: "Deaf / Hard of Hearing",
-      text: "Checks for video captions, audio transcripts, autoplay prevention, and embedded media accessibility. Important for deaf or hard-of-hearing users who need text alternatives to audio."
+      title: “Deaf / Hard of Hearing”,
+      text: “Checks for video captions, audio transcripts, autoplay prevention, and embedded media accessibility. Important for deaf or hard-of-hearing users who need text alternatives to audio.”
     },
     color_blindness: {
-      title: "Color Blindness",
-      text: "Evaluates whether links have underlines, forms use non-color error indicators, and information is conveyed through text labels rather than color alone. Affects roughly 8% of males and 0.5% of females."
+      title: “Color Blindness”,
+      text: “Evaluates whether links have underlines, forms use non-color error indicators, and information is conveyed through text rather than color alone. Affects roughly 8% of males.”
     },
     cognitive_load: {
-      title: "Cognitive Load",
-      text: "Checks navigation clarity, heading structure, semantic HTML layout, absence of auto-refresh, modal/popup overlays, and carousels. Helps users with ADHD, autism, or other cognitive differences."
+      title: “Cognitive Load”,
+      text: “Checks navigation clarity, heading structure, semantic HTML layout, absence of auto-refresh, modal/popup overlays, and carousels. Helps users with ADHD, autism, or other cognitive differences.”
     }
   };
 
   /* ---- DOM References ---- */
   var dom = {
-    searchForm: document.getElementById("search-form"),
-    searchInput: document.getElementById("main-search"),
-    btnSearch: document.getElementById("btn-search"),
-    filterAll: document.getElementById("filter-all"),
-    resultsList: document.getElementById("results-list"),
-    resultsStatus: document.getElementById("results-status"),
-    loadingIndicator: document.getElementById("loading-indicator"),
-    noResults: document.getElementById("no-results"),
-    searchError: document.getElementById("search-error"),
-    welcomeMessage: document.getElementById("welcome-message"),
-    btnFontDecrease: document.getElementById("btn-font-decrease"),
-    btnFontIncrease: document.getElementById("btn-font-increase"),
-    btnContrast: document.getElementById("btn-contrast"),
-    btnSpacing: document.getElementById("btn-spacing")
+    searchForm: document.getElementById(“search-form”),
+    searchInput: document.getElementById(“main-search”),
+    btnSearch: document.getElementById(“btn-search”),
+    filterAll: document.getElementById(“filter-all”),
+    filterWarning: document.getElementById(“filter-warning”),
+    resultsList: document.getElementById(“results-list”),
+    resultsStatus: document.getElementById(“results-status”),
+    resultsQuery: document.getElementById(“results-query”),
+    sortIndicator: document.getElementById(“sort-indicator”),
+    loadingIndicator: document.getElementById(“loading-indicator”),
+    noResults: document.getElementById(“no-results”),
+    searchError: document.getElementById(“search-error”),
+    welcomeMessage: document.getElementById(“welcome-message”),
+    btnFontDecrease: document.getElementById(“btn-font-decrease”),
+    btnFontIncrease: document.getElementById(“btn-font-increase”),
+    btnContrast: document.getElementById(“btn-contrast”),
+    btnSpacing: document.getElementById(“btn-spacing”)
   };
 
   /* ---- State ---- */
   var state = {
-    fontScale: parseFloat(localStorage.getItem("as-font-scale")) || 1,
-    highContrast: localStorage.getItem("as-high-contrast") === "true",
-    spacing: localStorage.getItem("as-spacing") === "true",
+    fontScale: parseFloat(localStorage.getItem(“as-font-scale”)) || 1,
+    highContrast: localStorage.getItem(“as-high-contrast”) === “true”,
+    spacing: localStorage.getItem(“as-spacing”) === “true”,
     lastResults: [],
+    lastQuery: “”,
     eventSource: null
   };
 
@@ -491,43 +529,36 @@ body {
      Accessibility Controls
      ============================================================ */
   function applyFontScale() {
-    document.documentElement.style.setProperty("--font-scale", state.fontScale);
-    localStorage.setItem("as-font-scale", state.fontScale);
+    document.documentElement.style.setProperty(“--font-scale”, state.fontScale);
+    localStorage.setItem(“as-font-scale”, state.fontScale);
   }
 
   function applyContrast() {
-    document.body.classList.toggle("high-contrast", state.highContrast);
-    dom.btnContrast.setAttribute("aria-pressed", state.highContrast);
-    localStorage.setItem("as-high-contrast", state.highContrast);
+    document.body.classList.toggle(“high-contrast”, state.highContrast);
+    dom.btnContrast.setAttribute(“aria-pressed”, state.highContrast);
+    localStorage.setItem(“as-high-contrast”, state.highContrast);
   }
 
   function applySpacing() {
     var scale = state.spacing ? 1.6 : 1;
-    document.documentElement.style.setProperty("--spacing-scale", scale);
-    dom.btnSpacing.setAttribute("aria-pressed", state.spacing);
-    localStorage.setItem("as-spacing", state.spacing);
+    document.documentElement.style.setProperty(“--spacing-scale”, scale);
+    dom.btnSpacing.setAttribute(“aria-pressed”, state.spacing);
+    localStorage.setItem(“as-spacing”, state.spacing);
   }
 
   function initA11yControls() {
-    applyFontScale();
-    applyContrast();
-    applySpacing();
-
-    dom.btnFontDecrease.addEventListener("click", function () {
-      state.fontScale = Math.max(0.75, state.fontScale - 0.1);
-      applyFontScale();
+    applyFontScale(); applyContrast(); applySpacing();
+    dom.btnFontDecrease.addEventListener(“click”, function () {
+      state.fontScale = Math.max(0.75, state.fontScale - 0.1); applyFontScale();
     });
-    dom.btnFontIncrease.addEventListener("click", function () {
-      state.fontScale = Math.min(2, state.fontScale + 0.1);
-      applyFontScale();
+    dom.btnFontIncrease.addEventListener(“click”, function () {
+      state.fontScale = Math.min(2, state.fontScale + 0.1); applyFontScale();
     });
-    dom.btnContrast.addEventListener("click", function () {
-      state.highContrast = !state.highContrast;
-      applyContrast();
+    dom.btnContrast.addEventListener(“click”, function () {
+      state.highContrast = !state.highContrast; applyContrast();
     });
-    dom.btnSpacing.addEventListener("click", function () {
-      state.spacing = !state.spacing;
-      applySpacing();
+    dom.btnSpacing.addEventListener(“click”, function () {
+      state.spacing = !state.spacing; applySpacing();
     });
   }
 
@@ -536,33 +567,33 @@ body {
      ============================================================ */
   function getFilterCheckboxes() {
     return CATEGORY_IDS.map(function (id) {
-      return document.getElementById("filter-" + id);
+      return document.getElementById(“filter-” + id);
     }).filter(Boolean);
   }
 
   function getActiveFilters() {
-    if (dom.filterAll.checked) return ["all"];
+    if (dom.filterAll.checked) return [“all”];
     var active = [];
-    getFilterCheckboxes().forEach(function (cb) {
-      if (cb.checked) active.push(cb.value);
-    });
-    return active.length > 0 ? active : ["all"];
+    getFilterCheckboxes().forEach(function (cb) { if (cb.checked) active.push(cb.value); });
+    return active.length > 0 ? active : [“all”];
   }
 
   function initFilters() {
     var categoryCheckboxes = getFilterCheckboxes();
 
-    dom.filterAll.addEventListener("change", function () {
+    dom.filterAll.addEventListener(“change”, function () {
       if (dom.filterAll.checked) {
         categoryCheckboxes.forEach(function (cb) { cb.checked = false; });
+        dom.filterWarning.hidden = true;
       }
       onFiltersChanged();
     });
 
     categoryCheckboxes.forEach(function (cb) {
-      cb.addEventListener("change", function () {
+      cb.addEventListener(“change”, function () {
         var anyChecked = categoryCheckboxes.some(function (c) { return c.checked; });
         dom.filterAll.checked = !anyChecked;
+        dom.filterWarning.hidden = anyChecked;
         onFiltersChanged();
       });
     });
@@ -578,53 +609,42 @@ body {
      Info Tooltips
      ============================================================ */
   function initTooltips() {
-    document.querySelectorAll(".info-btn").forEach(function (btn) {
-      btn.addEventListener("click", function (e) {
+    document.querySelectorAll(“.info-btn”).forEach(function (btn) {
+      btn.addEventListener(“click”, function (e) {
         e.stopPropagation();
-        var category = btn.getAttribute("data-category");
-        toggleTooltip(btn, category);
+        toggleTooltip(btn, btn.getAttribute(“data-category”));
       });
     });
-
-    document.addEventListener("click", function () { closeAllTooltips(); });
-    document.addEventListener("keydown", function (e) {
-      if (e.key === "Escape") closeAllTooltips();
-    });
+    document.addEventListener(“click”, function () { closeAllTooltips(); });
+    document.addEventListener(“keydown”, function (e) { if (e.key === “Escape”) closeAllTooltips(); });
   }
 
   function toggleTooltip(btn, category) {
-    var existing = btn.parentElement.querySelector(".info-tooltip");
-    var wasOpen = existing && existing.classList.contains("open");
-
+    var existing = btn.parentElement.querySelector(“.info-tooltip”);
+    var wasOpen = existing && existing.classList.contains(“open”);
     closeAllTooltips();
-
     if (wasOpen) return;
-
     var info = CATEGORY_INFO[category];
     if (!info) return;
-
-    var tip = document.createElement("div");
-    tip.className = "info-tooltip open";
-    tip.setAttribute("role", "tooltip");
-    tip.innerHTML = "<strong>" + escapeHtml(info.title) + "</strong><p>" + escapeHtml(info.text) + "</p>";
+    var tip = document.createElement(“div”);
+    tip.className = “info-tooltip open”;
+    tip.setAttribute(“role”, “tooltip”);
+    tip.innerHTML = “<strong>” + escapeHtml(info.title) + “</strong><p>” + escapeHtml(info.text) + “</p>”;
     btn.parentElement.appendChild(tip);
-    btn.setAttribute("aria-expanded", "true");
+    btn.setAttribute(“aria-expanded”, “true”);
   }
 
   function closeAllTooltips() {
-    document.querySelectorAll(".info-tooltip").forEach(function (tip) { tip.remove(); });
-    document.querySelectorAll(".info-btn").forEach(function (btn) {
-      btn.setAttribute("aria-expanded", "false");
-    });
+    document.querySelectorAll(“.info-tooltip”).forEach(function (t) { t.remove(); });
+    document.querySelectorAll(“.info-btn”).forEach(function (b) { b.setAttribute(“aria-expanded”, “false”); });
   }
 
   /* ============================================================
      Search — SSE streaming
      ============================================================ */
   function initSearch() {
-    dom.searchForm.addEventListener("submit", function (e) {
-      e.preventDefault();
-      performSearch();
+    dom.searchForm.addEventListener(“submit”, function (e) {
+      e.preventDefault(); performSearch();
     });
   }
 
@@ -632,78 +652,87 @@ body {
     var query = dom.searchInput.value.trim();
     if (!query) { dom.searchInput.focus(); return; }
 
-    // Cancel any in-flight stream
-    if (state.eventSource) {
-      state.eventSource.close();
-      state.eventSource = null;
-    }
-
-    var filters = getActiveFilters();
-    var url = "/api/search/stream?q=" + encodeURIComponent(query) +
-              "&filters=" + encodeURIComponent(filters.join(","));
+    if (state.eventSource) { state.eventSource.close(); state.eventSource = null; }
 
     state.lastResults = [];
+    state.lastQuery = query;
     showLoading(query);
 
-    var es = new EventSource(url);
+    var filters = getActiveFilters();
+    var es = new EventSource(“/api/search/stream?q=” + encodeURIComponent(query) +
+      “&filters=” + encodeURIComponent(filters.join(“,”)));
     state.eventSource = es;
 
     es.onmessage = function (e) {
       var data;
       try { data = JSON.parse(e.data); } catch (_) { return; }
 
-      if (data.type === "error") {
-        es.close();
-        state.eventSource = null;
-        clearSkeletons();
-        showError(data.message);
+      if (data.type === “error”) {
+        es.close(); state.eventSource = null;
+        clearSkeletons(); showError(data.message);
         return;
       }
 
-      if (data.type === "result") {
+      if (data.type === “result”) {
         var result = data.result;
-        if (result.scores) {
-          result.overall_score = computeOverallScore(result.scores, getActiveFilters());
-        }
+        if (result.scores) result.overall_score = computeOverallScore(result.scores, getActiveFilters());
         state.lastResults.push(result);
         clearSkeletons();
         dom.welcomeMessage.hidden = true;
         dom.noResults.hidden = true;
         dom.searchError.hidden = true;
         insertCardSorted(result);
-        dom.resultsStatus.textContent =
-          state.lastResults.length + " result" +
-          (state.lastResults.length !== 1 ? "s" : "") +
-          " for “" + escapeHtml(query) + "” — analyzing…";
+        dom.resultsStatus.textContent = state.lastResults.length + “ result” +
+          (state.lastResults.length !== 1 ? “s” : “”) + “ — analyzing…”;
       }
 
-      if (data.type === "done") {
-        es.close();
-        state.eventSource = null;
+      if (data.type === “done”) {
+        es.close(); state.eventSource = null;
         clearSkeletons();
         if (state.lastResults.length === 0) {
           showNoResults();
         } else {
           resortAndRender(state.lastResults);
-          dom.resultsStatus.textContent =
-            data.total + " results for “" + escapeHtml(data.query) + "”";
+          showResultsMeta(data.total, data.query, getActiveFilters());
+          dom.resultsStatus.textContent = “”;
         }
       }
     };
 
     es.onerror = function () {
-      es.close();
-      state.eventSource = null;
+      es.close(); state.eventSource = null;
       clearSkeletons();
       if (state.lastResults.length === 0) {
-        showError("Search failed. Check that API keys are configured and try again.");
+        showError(“Search failed. Check that API keys are configured and try again.”);
       } else {
-        // Partial results — still useful
         resortAndRender(state.lastResults);
-        dom.resultsStatus.textContent =
-          state.lastResults.length + " results for “" + escapeHtml(query) + "”";
+        showResultsMeta(state.lastResults.length, query, getActiveFilters());
+        dom.resultsStatus.textContent = “”;
       }
     };
+  }
+
+  /* ============================================================
+     Results Meta
+     ============================================================ */
+  function showResultsMeta(count, query, filters) {
+    dom.resultsQuery.textContent = count + “ result” + (count !== 1 ? “s” : “”) +
+      “ for “” + query + “””;
+    dom.resultsQuery.hidden = false;
+
+    var filterLabel;
+    if (filters.indexOf(“all”) !== -1) {
+      filterLabel = “All categories”;
+    } else {
+      filterLabel = filters.map(function (f) { return CATEGORY_NAMES[f] || f; }).join(“ + “);
+    }
+    dom.sortIndicator.textContent = “Sorted by: “ + filterLabel;
+    dom.sortIndicator.hidden = false;
+  }
+
+  function hideResultsMeta() {
+    dom.resultsQuery.hidden = true;
+    dom.sortIndicator.hidden = true;
   }
 
   /* ============================================================
@@ -711,63 +740,61 @@ body {
      ============================================================ */
   function showLoading(query) {
     dom.loadingIndicator.hidden = true;
-    dom.resultsList.innerHTML = "";
+    dom.resultsList.innerHTML = “”;
     dom.noResults.hidden = true;
     dom.searchError.hidden = true;
     dom.welcomeMessage.hidden = true;
-    dom.resultsStatus.textContent = "Searching for “" + escapeHtml(query) + "”…";
-    for (var i = 0; i < 5; i++) {
-      dom.resultsList.appendChild(buildSkeletonCard());
-    }
+    hideResultsMeta();
+    dom.resultsStatus.textContent = “Searching for “” + escapeHtml(query) + “”…”;
+    for (var i = 0; i < 5; i++) dom.resultsList.appendChild(buildSkeletonCard());
   }
 
   function clearSkeletons() {
-    dom.resultsList.querySelectorAll(".result-card-skeleton").forEach(function (s) {
-      s.remove();
-    });
+    dom.resultsList.querySelectorAll(“.result-card-skeleton”).forEach(function (s) { s.remove(); });
   }
 
   function showNoResults() {
     dom.noResults.hidden = false;
-    dom.resultsList.innerHTML = "";
-    dom.resultsStatus.textContent = "No results found.";
+    dom.resultsList.innerHTML = “”;
+    dom.resultsStatus.textContent = “No results found.”;
+    hideResultsMeta();
   }
 
   function showError(msg) {
     dom.searchError.hidden = false;
-    dom.searchError.textContent = "⚠ " + msg;
-    dom.resultsStatus.textContent = "";
+    dom.searchError.textContent = “⚠ “ + msg;
+    dom.resultsStatus.textContent = “”;
+    hideResultsMeta();
   }
 
   /* ============================================================
      Skeleton Cards
      ============================================================ */
   function buildSkeletonCard() {
-    var li = document.createElement("li");
-    li.className = "result-card-skeleton";
-    li.setAttribute("aria-hidden", "true");
+    var li = document.createElement(“li”);
+    li.className = “result-card-skeleton”;
+    li.setAttribute(“aria-hidden”, “true”);
     li.innerHTML =
-      '<div class="skeleton-line sk-wide"></div>' +
-      '<div class="skeleton-line sk-narrow"></div>' +
-      '<div class="skeleton-line sk-mid" style="margin-top:var(--spacing-sm)"></div>' +
-      '<div class="skeleton-line sk-mid"></div>' +
-      '<div class="skeleton-line sk-narrow" style="margin-top:var(--spacing-sm)"></div>';
+      '<div class=”skeleton-line sk-wide”></div>' +
+      '<div class=”skeleton-line sk-narrow”></div>' +
+      '<div class=”skeleton-line sk-mid” style=”margin-top:var(--spacing-sm)”></div>' +
+      '<div class=”skeleton-line sk-mid”></div>' +
+      '<div class=”skeleton-line sk-narrow” style=”margin-top:var(--spacing-sm)”></div>';
     return li;
   }
 
   /* ============================================================
-     Insert card in sorted position
+     Sorted Insert
      ============================================================ */
   function insertCardSorted(result) {
     var card = buildResultCard(result);
-    var items = dom.resultsList.querySelectorAll("li.result-card");
+    var items = dom.resultsList.querySelectorAll(“li.result-card”);
     var score = result.overall_score || 0;
     var inserted = false;
     for (var i = 0; i < items.length; i++) {
-      if (score > parseFloat(items[i].getAttribute("data-score") || "0")) {
+      if (score > parseFloat(items[i].getAttribute(“data-score”) || “0”)) {
         dom.resultsList.insertBefore(card, items[i]);
-        inserted = true;
-        break;
+        inserted = true; break;
       }
     }
     if (!inserted) dom.resultsList.appendChild(card);
@@ -783,15 +810,12 @@ body {
     });
     results.sort(function (a, b) { return (b.overall_score || 0) - (a.overall_score || 0); });
     renderResults(results);
+    showResultsMeta(results.length, state.lastQuery, filters);
   }
 
   function computeOverallScore(scores, activeFilters) {
-    var cats;
-    if (activeFilters.indexOf("all") !== -1) {
-      cats = CATEGORY_IDS;
-    } else {
-      cats = activeFilters.filter(function (f) { return CATEGORY_IDS.indexOf(f) !== -1; });
-    }
+    var cats = activeFilters.indexOf(“all”) !== -1 ? CATEGORY_IDS
+      : activeFilters.filter(function (f) { return CATEGORY_IDS.indexOf(f) !== -1; });
     if (cats.length === 0) return 5.0;
     var total = cats.reduce(function (sum, cat) {
       return sum + (scores[cat] ? scores[cat].score : 5.0);
@@ -803,69 +827,117 @@ body {
      Render Results
      ============================================================ */
   function renderResults(results) {
-    dom.resultsList.innerHTML = "";
+    dom.resultsList.innerHTML = “”;
     dom.noResults.hidden = true;
     dom.welcomeMessage.hidden = true;
     results.forEach(function (r) { dom.resultsList.appendChild(buildResultCard(r)); });
   }
 
+  /* ============================================================
+     Grade Badge
+     ============================================================ */
+  function getGradeInfo(score) {
+    if (score >= 9) return { letter: “A+”, cls: “grade-a” };
+    if (score >= 8) return { letter: “A”,  cls: “grade-a” };
+    if (score >= 7) return { letter: “B”,  cls: “grade-b” };
+    if (score >= 5) return { letter: “C”,  cls: “grade-c” };
+    if (score >= 3) return { letter: “D”,  cls: “grade-d” };
+    return { letter: “F”, cls: “grade-f” };
+  }
+
+  function getWeakestCategory(scores, activeFilters) {
+    var cats = activeFilters.indexOf(“all”) !== -1 ? CATEGORY_IDS
+      : activeFilters.filter(function (f) { return CATEGORY_IDS.indexOf(f) !== -1; });
+    var worst = null, worstScore = 11;
+    cats.forEach(function (cat) {
+      var s = scores[cat] ? scores[cat].score : 5.0;
+      if (s < worstScore) { worstScore = s; worst = cat; }
+    });
+    return worst ? { cat: worst, score: worstScore } : null;
+  }
+
+  /* ============================================================
+     Build Result Card
+     ============================================================ */
   function buildResultCard(result) {
-    var li = document.createElement("li");
-    li.className = "result-card";
-    li.setAttribute("data-score", (result.overall_score || 0).toString());
+    var li = document.createElement(“li”);
+    li.className = “result-card”;
+    li.setAttribute(“data-score”, (result.overall_score || 0).toString());
 
     var overall = result.overall_score || 0;
     var level = getScoreLevel(overall);
     var barColor = getScoreColor(level);
+    var grade = getGradeInfo(overall);
 
     var activeFilters = getActiveFilters();
-    var displayCategories = activeFilters.indexOf("all") !== -1
+    var displayCategories = activeFilters.indexOf(“all”) !== -1
       ? CATEGORY_IDS
       : activeFilters.filter(function (f) { return CATEGORY_IDS.indexOf(f) !== -1; });
 
-    var breakdownHtml = "";
+    // Weakest category callout
+    var weakestHtml = “”;
+    if (result.scores) {
+      var weak = getWeakestCategory(result.scores, activeFilters);
+      if (weak && weak.score < 7) {
+        weakestHtml = '<div class=”weakest-callout” aria-label=”Weakest area”>' +
+          '⚠ Weakest: ' + escapeHtml(CATEGORY_NAMES[weak.cat] || weak.cat) +
+          ' (' + weak.score.toFixed(1) + '/10)</div>';
+      }
+    }
+
+    // Score breakdown rows
+    var breakdownHtml = “”;
     if (result.scores) {
       breakdownHtml = displayCategories.map(function (cat) {
         var catData = result.scores[cat];
-        if (!catData) return "";
+        if (!catData) return “”;
         var catLevel = getScoreLevel(catData.score);
         var catColor = getScoreColor(catLevel);
-        var detailsHtml = "";
-        if (catData.details && catData.details.length > 0) {
-          detailsHtml = '<ul class="score-detail-list">' +
-            catData.details.map(function (d) { return "<li>" + escapeHtml(d) + "</li>"; }).join("") +
-            "</ul>";
-        }
+        var detailsHtml = catData.details && catData.details.length
+          ? '<ul class=”score-detail-list”>' +
+            catData.details.map(function (d) { return “<li>” + escapeHtml(d) + “</li>”; }).join(“”) +
+            “</ul>”
+          : “”;
         return '<li>' +
-          '<span class="category-name">' + escapeHtml(CATEGORY_NAMES[cat] || cat) + '</span>' +
-          '<span class="score-bar-container"><span class="score-bar-fill" style="width:' + (catData.score * 10) + '%;background:' + catColor + '"></span></span>' +
-          '<span class="score-value" data-level="' + catLevel + '">' + catData.score.toFixed(1) + '</span>' +
+          '<span class=”category-name”>' + escapeHtml(CATEGORY_NAMES[cat] || cat) + '</span>' +
+          '<span class=”score-bar-container”><span class=”score-bar-fill” style=”width:' +
+          (catData.score * 10) + '%;background:' + catColor + '”></span></span>' +
+          '<span class=”score-value” data-level=”' + catLevel + '”>' + catData.score.toFixed(1) + '</span>' +
           detailsHtml + '</li>';
-      }).join("");
+      }).join(“”);
     }
 
-    var statusClass = "status-complete", statusText = "Analyzed";
-    if (result.analysis_status === "failed") { statusClass = "status-failed"; statusText = "Fetch Failed"; }
-    else if (result.analysis_status === "error") { statusClass = "status-error"; statusText = "Error"; }
+    var statusClass = “status-complete”, statusText = “Analyzed”;
+    if (result.analysis_status === “failed”) { statusClass = “status-failed”; statusText = “Fetch Failed”; }
+    else if (result.analysis_status === “error”) { statusClass = “status-error”; statusText = “Error”; }
+
+    var snippet = result.rich_snippet || result.snippet || “”;
 
     li.innerHTML =
-      '<div class="result-header">' +
-        '<h3 class="result-title"><a href="' + escapeAttr(result.link) + '" target="_blank" rel="noopener">' + escapeHtml(result.title) + '</a></h3>' +
-        '<p class="result-url">' + escapeHtml(result.display_link || result.link) + '</p>' +
-      '</div>' +
-      '<p class="result-snippet">' + escapeHtml(result.snippet) + '</p>' +
-      '<div class="score-section">' +
-        '<div class="overall-score">' +
-          '<span class="score-label">Accessibility Score</span>' +
-          '<span class="score-bar-container"><span class="score-bar-fill" style="width:' + (overall * 10) + '%;background:' + barColor + '"></span></span>' +
-          '<span class="score-value" data-level="' + level + '">' + overall.toFixed(1) + '</span>' +
+      '<div class=”result-header”>' +
+        '<div class=”result-header-main”>' +
+          '<h3 class=”result-title”><a href=”' + escapeAttr(result.link) +
+            '” target=”_blank” rel=”noopener”>' + escapeHtml(result.title) + '</a></h3>' +
+          '<p class=”result-url”>' + escapeHtml(result.display_link || result.link) + '</p>' +
         '</div>' +
-        '<details class="score-breakdown">' +
+        '<span class=”grade-badge ' + grade.cls + '” aria-label=”Accessibility grade ' +
+          grade.letter + '”>' + grade.letter + '</span>' +
+      '</div>' +
+      '<p class=”result-snippet”>' + escapeHtml(snippet) + '</p>' +
+      '<div class=”score-section”>' +
+        '<div class=”overall-score”>' +
+          '<span class=”score-label”>Accessibility Score</span>' +
+          '<span class=”score-bar-container”><span class=”score-bar-fill” style=”width:' +
+            (overall * 10) + '%;background:' + barColor + '”></span></span>' +
+          '<span class=”score-value” data-level=”' + level + '”>' + overall.toFixed(1) + '</span>' +
+        '</div>' +
+        weakestHtml +
+        '<details class=”score-breakdown”>' +
           '<summary>Score breakdown (' + displayCategories.length + ' categories)</summary>' +
-          '<ul class="score-list">' + breakdownHtml + '</ul>' +
+          '<ul class=”score-list”>' + breakdownHtml + '</ul>' +
         '</details>' +
       '</div>' +
-      '<div class="analysis-status"><span class="status-badge ' + statusClass + '">' + statusText + '</span></div>';
+      '<div class=”analysis-status”><span class=”status-badge ' + statusClass + '”>' + statusText + '</span></div>';
 
     return li;
   }
@@ -874,25 +946,25 @@ body {
      Helpers
      ============================================================ */
   function getScoreLevel(score) {
-    if (score >= 7) return "high";
-    if (score >= 4) return "mid";
-    return "low";
+    if (score >= 7) return “high”;
+    if (score >= 4) return “mid”;
+    return “low”;
   }
 
   function getScoreColor(level) {
-    if (level === "high") return "var(--color-score-high)";
-    if (level === "mid") return "var(--color-score-mid)";
-    return "var(--color-score-low)";
+    if (level === “high”) return “var(--color-score-high)”;
+    if (level === “mid”) return “var(--color-score-mid)”;
+    return “var(--color-score-low)”;
   }
 
   function escapeHtml(str) {
-    if (!str) return "";
-    return str.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+    if (!str) return “”;
+    return str.replace(/&/g, “&amp;”).replace(/</g, “&lt;”).replace(/>/g, “&gt;”).replace(/”/g, “&quot;”);
   }
 
   function escapeAttr(str) {
-    if (!str) return "";
-    return str.replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/'/g, "&#39;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+    if (!str) return “”;
+    return str.replace(/&/g, “&amp;”).replace(/”/g, “&quot;”).replace(/'/g, “&#39;”).replace(/</g, “&lt;”).replace(/>/g, “&gt;”);
   }
 
   /* ============================================================
@@ -905,8 +977,8 @@ body {
     initSearch();
   }
 
-  if (document.readyState === "loading") {
-    document.addEventListener("DOMContentLoaded", init);
+  if (document.readyState === “loading”) {
+    document.addEventListener(“DOMContentLoaded”, init);
   } else {
     init();
   }

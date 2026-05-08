@@ -1,4 +1,5 @@
 import requests
+from bs4 import BeautifulSoup
 
 FETCH_TIMEOUT = 4
 MAX_CONTENT_LENGTH = 2_000_000
@@ -30,3 +31,16 @@ def fetch_page_html(url):
         return html
     except Exception:
         return None
+
+
+def extract_rich_snippet(html):
+    """Return first substantive paragraph text from HTML, or None."""
+    try:
+        soup = BeautifulSoup(html, "html.parser")
+        for p in soup.find_all("p"):
+            text = p.get_text(" ", strip=True)
+            if len(text) > 60:
+                return text[:300]
+    except Exception:
+        pass
+    return None
