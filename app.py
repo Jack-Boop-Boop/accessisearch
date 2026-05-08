@@ -10,6 +10,11 @@ from utils.scoring import CATEGORY_IDS, compute_overall_score, sort_results_by_s
 
 app = Flask(__name__, static_folder="public", static_url_path="/public")
 
+_TAG_RE = __import__("re").compile(r"<[^>]+>")
+
+def _strip_html(text):
+    return _TAG_RE.sub("", text or "").strip()
+
 
 # --- Page Routes ---
 
@@ -146,7 +151,7 @@ def google_custom_search(query, num=5):
                 "title": it.get("title", "Untitled"),
                 "link": it.get("url", ""),
                 "display_link": urlparse(it.get("url", "")).netloc,
-                "snippet": it.get("description", ""),
+                "snippet": _strip_html(it.get("description", "")),
             }
             for it in results
         ]
